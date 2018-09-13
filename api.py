@@ -103,6 +103,7 @@ def horarioApi():
             print "omitiendo.."
 
     print "Enviando respuesta"
+    driver.close()
     return json.dumps( respo, indent= 4 )
 
 
@@ -110,7 +111,91 @@ def horarioApi():
 
 
 @app.route('/api/v1/ufro/notas', methods=['POST'])
-def horarioApi():
+def notasApi():
+
+    chrome_options = webdriver.ChromeOptions()
+    #chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    driver = webdriver.Chrome(chrome_options=chrome_options)
+    driver.set_window_size(1024, 768) # optional
+    respo = {}
+    respo['notas'] = []
+
+
+    print "Formateando valores de entrada"
+    content = request.json
+    user = content['username']
+    password = content['password']
+
+    try:
+        semester = content['semester']
+        year = content['year']
+        period = year+semester
+    except KeyError:
+        respo['notas'].append({ "error" : "Para realizar esta consulta es necesario especificar semestre y anio" })
+        driver.close()
+        return json.dumps( respo, indent= 4 )
+          
+        
+
+
+    print "Contenido"
+    print user
+    print password
+
+    print "Cargando pagina"
+    driver.get("https://intranet.ufro.cl/")  
+
+    print "Rellenando informacion de credenciales"
+    username_field = driver.find_element_by_name('Formulario[POPUSERNAME]')
+    username_field.send_keys( user )
+
+    password_field = driver.find_element_by_name('Formulario[XYZ]')
+    password_field.send_keys( password )
+
+    entrarBtn = driver.find_elements(By.XPATH, "//a[@href='Javascript:Enviar()']")
+    for option in entrarBtn: #iterate over the options, place attribute value in list
+        option.click()
+
+
+    print "Abriendo menu para acceder a notas"
+    WebDriverWait(driver, 6).until( EC.presence_of_element_located((By.XPATH, "//a[@class='linksubmenu']")) )    
+    subMenuOptions = driver.find_elements(By.XPATH, "//a[@class='linksubmenu']")
+
+    for option in subMenuOptions: #iterate over the options, place attribute value in list
+        elementList = option.find_elements_by_tag_name("font")
+        if( elementList[0].text == "Alumno" ):
+            option.click()
+            break
+
+    print "Accediendo a notas"
+    WebDriverWait(driver, 6).until( EC.presence_of_element_located((By.XPATH, "//a[@class='linkopcmenu']")) )  
+    horariosMenu = driver.find_elements(By.XPATH, "//a[@class='linkopcmenu']")
+
+    for option in horariosMenu: #iterate over the options, place attribute value in list
+        elementList = option.find_elements_by_tag_name("font")
+        if( elementList[0].text == "Consultas" ):
+            option.click()
+            break
+
+    WebDriverWait(driver, 6).until( EC.presence_of_element_located((By.XPATH, "//a[@class='linkopcmenu']")) )  
+    horariosMenu = driver.find_elements(By.XPATH, "//a[@class='linkopcmenu']")
+
+    for option in horariosMenu: #iterate over the options, place attribute value in list
+        elementList = option.find_elements_by_tag_name("font")
+        if( elementList[0].text == "Notas Parciales" ):
+            option.click()
+            break
+
+    print "Seleccionando semestre en cuestion" 
+    periodSelect = driver.find_element_by_name('Formulario[periodo]')
+    options = periodSelect.find_elements_by_tag_name("option")
+    select = Select(periodSelect)
+
+    for option in options:
+        if( period == unicodedata.normalize('NFKD', option.text.lower() ).encode('ascii','ignore') ):
+            select.select_by_value( option.get_attribute("value") )
 
 
 if __name__ == '__main__':
